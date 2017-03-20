@@ -1,0 +1,31 @@
+# -*- coding: utf-8 -*-
+
+import FreeCAD
+import FreeCADGui
+
+PROJECT_DIR = u"/home/user/project"
+CAD_FILE = u"{}/cargo_bike.fcstd".format(PROJECT_DIR)
+OUTPUT_DIR = u"{}/output".format(PROJECT_DIR)
+
+FreeCAD.open(CAD_FILE)
+App.setActiveDocument("cargo_bike")
+App.ActiveDocument=App.getDocument("cargo_bike")
+Gui.ActiveDocument=Gui.getDocument("cargo_bike")
+
+Gui.runCommand('Std_Refresh')
+# the foreground window is the last techdraw drawing
+Gui.runCommand('Std_ActivateNextWindow')
+# now the foreground window is the "start page"
+Gui.runCommand('Std_ActivateNextWindow')
+# now the foreground window is the default document page
+
+objs = [
+    FreeCAD.ActiveDocument.getObjectsByLabel(label)[0]
+    for label in ['full_side_full', 'full_side_steerer', 'full_side_fork']
+]
+
+for obj in objs:
+    Gui.runCommand('Std_ActivateNextWindow')
+    FreeCADGui.export([obj], u"{}/{}.pdf".format(OUTPUT_DIR, obj.Label))
+
+exit()
