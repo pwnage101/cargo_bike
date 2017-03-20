@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+#
+# Copyright © 2017 Troy Sankey <sankeytms at gmail dot com>
+# 
+# This documentation describes Open Hardware and is licensed under the CERN OHL
+# v1.2.  You may redistribute and modify this documentation under the terms of
+# the CERN OHL v1.2 (http://ohwr.org/cernohl). This documentation is
+# distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY, INCLUDING OF
+# MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A PARTICULAR PURPOSE.
+# Please see the CERN OHL v1.2 for applicable conditions.
+#
+# FIXME: descript the function of this script
 
 # constants
 VIRTUAL_PROJECT_DIR=/home/user/project
@@ -6,7 +17,7 @@ VIRTUAL_PROJECT_DIR=/home/user/project
 # default settings
 PROJECT_DIR=$(pwd)
 HEADLESS="no"
-DOCKER_IMAGE="freecad-ubuntu"
+DOCKER_IMAGE=${DOCKER_IMAGE:-"freecad-ubuntu"}
 COMMAND="freecad-daily ${VIRTUAL_PROJECT_DIR}/macros/export_drawings.FCScript"
 
 # getopt setup

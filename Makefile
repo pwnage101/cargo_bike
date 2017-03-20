@@ -1,3 +1,12 @@
+# Copyright © 2017 Troy Sankey <sankeytms at gmail dot com>
+# 
+# This documentation describes Open Hardware and is licensed under the CERN OHL
+# v1.2.  You may redistribute and modify this documentation under the terms of
+# the CERN OHL v1.2 (http://ohwr.org/cernohl). This documentation is
+# distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY, INCLUDING OF
+# MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A PARTICULAR PURPOSE.
+# Please see the CERN OHL v1.2 for applicable conditions.
+
 DRAWINGS := full_side_full full_side_steerer full_side_fork
 DRAWINGS := $(addprefix output/,$(DRAWINGS))
 
@@ -12,6 +21,13 @@ cargo_bike.fcstd.intermediate : cargo_bike.fcstd
 
 .PHONY : drawings
 drawings : $(DRAWINGS:=_cropped.pdf)
+
+.PHONY : open
+open :
+	docker run -ti --rm -e DISPLAY=unix$(DISPLAY) \
+	    -v /tmp/.X11-unix:/tmp/.X11-unix \
+	    -v $(shell pwd):/home/user/project \
+	    freecad-ubuntu freecad-daily /home/user/project/cargo_bike.fcstd
 
 .PHONY : clean
 clean :
