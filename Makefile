@@ -33,6 +33,7 @@ open :
 
 .PHONY : build-image
 build-image :
+	groups | grep docker
 	docker build -t freecad-ubuntu .
 
 .PHONY : clean
