@@ -61,7 +61,7 @@ if [[ $HEADLESS == yes ]]; then
     Xvfb $DISPLAY -screen 0 1024x768x24 &  # starts Xvfb
 fi
 
-docker run -ti --rm -e DISPLAY=unix$DISPLAY \
+docker run -ti --rm -e DISPLAY=unix$DISPLAY --net=none \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ${PROJECT_DIR}:${VIRTUAL_PROJECT_DIR} \
     $DOCKER_IMAGE $COMMAND

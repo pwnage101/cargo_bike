@@ -24,7 +24,7 @@ drawings : $(DRAWINGS:=_cropped.pdf)
 
 .PHONY : open
 open :
-	docker run -ti --rm -e DISPLAY=unix$(DISPLAY) \
+	docker run -ti --rm -e DISPLAY=unix$(DISPLAY) --net=none \
 	    -v /tmp/.X11-unix:/tmp/.X11-unix \
 	    -v $(shell pwd):/home/user/project \
 	    freecad-ubuntu freecad-daily /home/user/project/cargo_bike.fcstd
