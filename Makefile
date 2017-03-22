@@ -31,6 +31,10 @@ open :
 	    freecad-ubuntu freecad-daily /home/user/project/cargo_bike.fcstd
 	xhost -local:root
 
+.PHONY : build-image
+build-image :
+	docker build -t freecad-ubuntu .
+
 .PHONY : clean
 clean :
 	rm output/*.pdf
