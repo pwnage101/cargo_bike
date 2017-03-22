@@ -2,9 +2,9 @@ Introduction
 ============
 
 The CAD file ``cargo_bike.fcstd`` contains a parametric design for a cargo bike
-utilizing a pre-built traditional bicycle frame and fork.  Surrounding files
-(such as shell scripts, python scripts, dockerfiles, makefiles, etc.) provide
-the building blocks for automation infrastructure.
+utilizing any arbitrary pre-built traditional bicycle frame and fork.
+Surrounding files (such as shell scripts, python scripts, dockerfiles,
+makefiles, etc.) provide the building blocks for automation infrastructure.
 
 Design Notes
 ============
@@ -14,7 +14,7 @@ See wiki: https://wiki.sankey.info/index.php?title=Cargo_bike
 Software
 ========
 
-All Development and scripts require FreeCAD 0.17+ and OCCT 7.1.0+.  Since these
+All development and scripts require FreeCAD 0.17+ and OCCT 7.1.0+.  Since these
 bleeding edge versions can be difficult to obtain, a Dockerfile is provided to
 run FreeCAD from the ``freecad-maintainers/freecad-daily`` PPA in an Ubuntu
 image.
