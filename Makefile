@@ -36,6 +36,11 @@ build-image :
 	groups | grep docker
 	docker build -t freecad-ubuntu .
 
+.PHONY : rebuild-image
+rebuild-image :
+	groups | grep docker
+	docker build --no-cache=true -t freecad-ubuntu .
+
 .PHONY : clean
 clean :
 	rm output/*.pdf
