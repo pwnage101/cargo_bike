@@ -1,10 +1,10 @@
-FROM 32bit/ubuntu:16.04
+FROM ubuntu:16.04
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:freecad-maintainers/freecad-daily && \
     apt-get update && \
-    apt-get install -y freecad-daily
+    apt-get install -y freecad-daily netgen gmsh python-gmsh git
 
 # Replace 1000 with your user / group id
 RUN export uid=1000 gid=1000 && \
