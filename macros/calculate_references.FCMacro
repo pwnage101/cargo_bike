@@ -1,0 +1,34 @@
+from FreeCAD import Base
+Vec = Base.Vector
+
+ref = App.ActiveDocument.getObjectsByLabel('References')[0]
+
+aliases = {
+    'cargo_front_tube_r/cope_0/angle': '1',
+}
+
+def setref(alias, value, units='mm'):
+    ref.set(
+        'B{}'.format(aliases[alias]),
+        '{} {}'.format(value, units)
+    )
+    ref.set('C{}'.format(aliases[alias]), 'FROM PYTHON')
+
+def copy_vector(vec):
+    """
+    Vectors cannot be copied using the python copy module,
+    and don't otherwise have a built-in copy mechanism!  So
+    this function should suffice.
+    """
+    return Vector(vec.x, vec.y, vec.z)
+
+
+cargo_front_tube_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0]
+
+setref(
+    'cargo_front_tube_r/cope_0/angle',
+    3.14159 - cargo_front_tube_centerline.Shape.Curve.Direction.getAngle(Vector(1,0,0)),
+    'rad'
+)
+
+ref.recompute()
