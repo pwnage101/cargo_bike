@@ -16,7 +16,6 @@ The design is currently a WORK IN PROGRESS.
 For a preview of the design, see screenshot:
 
 .. image:: preview.png
-      :scale: 50 %
 
 Software
 ========
