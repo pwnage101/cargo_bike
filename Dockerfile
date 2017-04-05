@@ -13,6 +13,9 @@ RUN export uid=1000 gid=1000 && \
     echo "user:x:${uid}:" >> /etc/group && \
     chown ${uid}:${gid} -R /home/user
 
+Run mkdir /home/user/.FreeCAD && \
+    ln -s /home/user/project/macros /home/user/.FreeCAD/Macro
+
 USER user
 ENV HOME /home/user
 CMD freecad-daily
