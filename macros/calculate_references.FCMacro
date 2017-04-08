@@ -1,6 +1,9 @@
 from FreeCAD import Base
 Vec = Base.Vector
 
+import numpy as np
+import math
+
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
 aliases = {
@@ -20,15 +23,117 @@ def copy_vector(vec):
     and don't otherwise have a built-in copy mechanism!  So
     this function should suffice.
     """
-    return Vector(vec.x, vec.y, vec.z)
+    return Vec(vec.x, vec.y, vec.z)
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+def rotated_about_axis(vector, axis, theta):
+    """
+    Rotate the given Vector according to the given axis and theta.
+
+    Returns:
+        a new vector
+    """
+    rotated = np.dot(rotation_matrix(axis, theta), np.asarray(vector))
+    return Vec(rotated)
 
 
-cargo_front_tube_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0]
+class Cope(object):
+    def reference_vector(self):
+        raise(NotImplementedError)
 
+    def reference(self, first_cope):
+        first_cope.get_centerline_facing_away()
+        self.reference_vector()
+
+        small_angle = first_cope.reference_vector().getAngle(self.reference_vector())
+        # FIXME
+        
+
+class FlatCope(Cope):
+    def __init__(self, centerline, tube_diameter, cope_diameter, cut_face_normal):
+        """
+        Parameters:
+            centerline (Vec): normalized vector representing the centerline
+                of the tubing.
+            cut_face_normal (Vec): normal vector of the cut face.
+        """
+        self.centerline = centerline
+        self.cut_face_normal = cut_face_normal
+        self.tube_diameter = tube_diameter
+        self.cope_diameter = cope_diameter
+
+    def get_centerline_facing_away(self):
+        if self.centerline.angle(cut_face_normal) > (3.1415927/2)
+            return self.centerline.negative()
+        else:
+            return self.centerline
+
+    def reference_vector(self):
+        centerline_facing_away = self.get_centerline_facing_away
+        return centerline_facing_away.cross(self.cut_face_normal)
+
+class cylindricalCope(Cope):
+    def __init__(self, centerline, tube_diameter, cope_diameter, saw_direction):
+        """
+        Parameters:
+            centerline (Vec): normalized vector representing the centerline
+                of the tubing.
+            saw_direction (Vec): axis of saw rotation, pointing in direction
+                of cutting motion.
+        """
+        self.centerline = centerline
+        self.saw_direction = saw_direction
+        self.tube_diameter = tube_diameter
+        self.cope_diameter = cope_diameter
+
+    def get_centerline_facing_away(self):
+        if self.centerline.angle(self.saw_direction.negative()) > (3.1415927/2)
+            return self.centerline.negative()
+        else:
+            return self.centerline
+
+    def reference_vector(self):
+        centerline_facing_away = self.get_centerline_facing_away()
+        return centerline_facing_away.cross(self.saw_direction.negative()).cross(self.centerline)
+
+class CopedTubing(object):
+    def __init__(self, name, copes):
+        self.name = name
+        self.copes = copes
+
+    def set_references(self):
+        for cope in self.copes:
+            cope.reference() self.copes[0]
+
+# Calculating the copes for the cargo_front_tube_r
+cargo_front_tube_r_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0]
+cargo_front_tube_r_centerface = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerface')[0]
+
+# cargo_front_tube_r/cope_0
+cargo_front_tube_r_cope_0_ref = 
 setref(
     'cargo_front_tube_r/cope_0/angle',
-    3.14159 - cargo_front_tube_centerline.Shape.Curve.Direction.getAngle(Vector(1,0,0)),
+    3.14159 - cargo_front_tube_r_centerline.Shape.Curve.Direction.getAngle(Vec(1,0,0)),
     'rad'
 )
 
+
+
+
 ref.recompute()
+
+# vim: ft=python
