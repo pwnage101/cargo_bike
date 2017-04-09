@@ -4,11 +4,37 @@ Vec = Base.Vector
 import numpy as np
 import math
 
+design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
+upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
 aliases = {
-    'cargo_front_tube_r/cope_0/angle': '1',
+#    'cargo_front_tube_r/cope_0/angle': '1',
+#    'cargo_front_tube_r/cope_0/reference': '3',
+#    'cargo_front_tube_r/cope_1/angle': '4',
+#    'cargo_front_tube_r/cope_1/reference': '5',
+#    'cargo_front_tube_r/cope_2/angle': '6',
+#    'cargo_front_tube_r/cope_2/reference': '8',
+#    'lower_down_tube/cope_0/angle': '9',
+#    'lower_down_tube/cope_0/reference': '11',
+#    'lower_down_tube/cope_1/angle': '12',
+#    'lower_down_tube/cope_1/reference': '14',
 }
+
+row = 1
+row_empty = False
+while not row_empty:
+    name = None
+    try:
+        name = ref.get('A{}'.format(row))
+    except ValueError:
+        row_empty = True
+    else:
+        if name:
+            aliases[name] = '{}'.format(row)
+        else:
+            row_empty = True
+    row += 1
 
 def setref(alias, value, units='mm'):
     ref.set(
@@ -55,16 +81,22 @@ class Cope(object):
     def reference_vector(self):
         raise(NotImplementedError)
 
+    def angle(self):
+        raise(NotImplementedError)
+
     def reference(self, first_cope):
         first_cope.get_centerline_facing_away()
         self.reference_vector()
 
         small_angle = first_cope.reference_vector().getAngle(self.reference_vector())
-        # FIXME
+        if first_cope.get_centerline_facing_away().dot(first_cope.reference_vector().cross(self.reference_vector())) > 0:
+            return small_angle
+        else:
+            return 0 - small_angle
         
 
 class FlatCope(Cope):
-    def __init__(self, centerline, tube_diameter, cope_diameter, cut_face_normal):
+    def __init__(self, centerline, tube_diameter, cut_face_normal):
         """
         Parameters:
             centerline (Vec): normalized vector representing the centerline
@@ -74,19 +106,25 @@ class FlatCope(Cope):
         self.centerline = centerline
         self.cut_face_normal = cut_face_normal
         self.tube_diameter = tube_diameter
-        self.cope_diameter = cope_diameter
 
     def get_centerline_facing_away(self):
-        if self.centerline.angle(cut_face_normal) > (3.1415927/2)
+        if self.centerline.getAngle(self.cut_face_normal) > (3.1415927/2):
             return self.centerline.negative()
         else:
             return self.centerline
 
     def reference_vector(self):
-        centerline_facing_away = self.get_centerline_facing_away
+        centerline_facing_away = self.get_centerline_facing_away()
         return centerline_facing_away.cross(self.cut_face_normal)
 
-class cylindricalCope(Cope):
+    def angle(self):
+        """
+        Get a cut angle which would be indicated on a horizontal metal bandsaw.
+        """
+        return self.centerline.getAngle(self.cut_face_normal)
+
+
+class CylindricalCope(Cope):
     def __init__(self, centerline, tube_diameter, cope_diameter, saw_direction):
         """
         Parameters:
@@ -101,7 +139,7 @@ class cylindricalCope(Cope):
         self.cope_diameter = cope_diameter
 
     def get_centerline_facing_away(self):
-        if self.centerline.angle(self.saw_direction.negative()) > (3.1415927/2)
+        if self.centerline.getAngle(self.saw_direction.negative()) > (3.1415927/2):
             return self.centerline.negative()
         else:
             return self.centerline
@@ -110,28 +148,70 @@ class cylindricalCope(Cope):
         centerline_facing_away = self.get_centerline_facing_away()
         return centerline_facing_away.cross(self.saw_direction.negative()).cross(self.centerline)
 
+    def angle(self):
+        """
+        Get a cut angle which would be indicated on a tubing notcher jig.
+        """
+        return self.saw_direction.getAngle(self.centerline) - (3.1415927/2)
+
+
 class CopedTubing(object):
     def __init__(self, name, copes):
         self.name = name
         self.copes = copes
 
     def set_references(self):
+        cope_idx = 0
         for cope in self.copes:
-            cope.reference() self.copes[0]
+            cope_name = '{}/cope_{}'.format(self.name, cope_idx)
+            setref('{}/angle'.format(cope_name), cope.angle(), 'rad')
+            setref('{}/reference'.format(cope_name), cope.reference(self.copes[0]), 'rad')
+            cope_idx += 1
+            
 
 # Calculating the copes for the cargo_front_tube_r
-cargo_front_tube_r_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0]
-cargo_front_tube_r_centerface = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerface')[0]
+cargo_front_tube_r_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0].Shape.tangentAt(1)
 
-# cargo_front_tube_r/cope_0
-cargo_front_tube_r_cope_0_ref = 
-setref(
-    'cargo_front_tube_r/cope_0/angle',
-    3.14159 - cargo_front_tube_r_centerline.Shape.Curve.Direction.getAngle(Vec(1,0,0)),
-    'rad'
-)
+CopedTubing('cargo_front_tube_r', [
+    # front tube / side tube joint
+    CylindricalCope(
+        cargo_front_tube_r_centerline.negative(),
+        design_params.get('cargo_tube_diam'),
+        design_params.get('cargo_tube_diam'),
+        Vec(1, 0, 0), # represents centerline of cargo_side_tube
+    ),
+    # joint between two front tubes
+    FlatCope(
+        cargo_front_tube_r_centerline,
+        design_params.get('cargo_tube_diam'),
+        Vec(0, 1, 0), # represents normal face of cope
+    ),
+    # slot for front head tube
+    CylindricalCope(
+        cargo_front_tube_r_centerline,
+        design_params.get('cargo_tube_diam'),
+        upcycled_fork.get('front_head_tube_OD'),
+        App.ActiveDocument.getObjectsByLabel('front_head_tube_cope_centerline')[0].Shape.tangentAt(1).negative(),
+    ),
+]).set_references()
 
+# Calculating the copes for the lower_down_tube
+lower_down_tube_centerline = Vec(1, 0, 0)
 
+CopedTubing('lower_down_tube', [
+    CylindricalCope(
+        lower_down_tube_centerline,
+        design_params.get('cargo_tube_diam'),
+        design_params.get('cargo_tube_diam'),
+        Vec(0, 1, 0),
+    ),
+    CylindricalCope(
+        lower_down_tube_centerline,
+        design_params.get('cargo_tube_diam'),
+        design_params.get('rear_head_tube_od'),
+        Vec(0, 0, 1),
+    ),
+]).set_references()
 
 
 ref.recompute()
