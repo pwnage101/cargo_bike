@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from FreeCAD import Base
 Vec = Base.Vector
 
@@ -8,19 +9,7 @@ design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
 upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
-aliases = {
-#    'cargo_front_tube_r/cope_0/angle': '1',
-#    'cargo_front_tube_r/cope_0/reference': '3',
-#    'cargo_front_tube_r/cope_1/angle': '4',
-#    'cargo_front_tube_r/cope_1/reference': '5',
-#    'cargo_front_tube_r/cope_2/angle': '6',
-#    'cargo_front_tube_r/cope_2/reference': '8',
-#    'lower_down_tube/cope_0/angle': '9',
-#    'lower_down_tube/cope_0/reference': '11',
-#    'lower_down_tube/cope_1/angle': '12',
-#    'lower_down_tube/cope_1/reference': '14',
-}
-
+aliases = {}
 row = 1
 row_empty = False
 while not row_empty:
@@ -39,7 +28,7 @@ while not row_empty:
 def setref(alias, value, units='mm'):
     ref.set(
         'B{}'.format(aliases[alias]),
-        '{} {}'.format(value, units)
+        '{:.2f} {}'.format(value, units)
     )
     ref.set('C{}'.format(aliases[alias]), 'FROM PYTHON')
 
@@ -108,7 +97,7 @@ class FlatCope(Cope):
         self.tube_diameter = tube_diameter
 
     def get_centerline_facing_away(self):
-        if self.centerline.getAngle(self.cut_face_normal) > (3.1415927/2):
+        if self.centerline.getAngle(self.cut_face_normal) > (math.pi/2):
             return self.centerline.negative()
         else:
             return self.centerline
@@ -139,7 +128,7 @@ class CylindricalCope(Cope):
         self.cope_diameter = cope_diameter
 
     def get_centerline_facing_away(self):
-        if self.centerline.getAngle(self.saw_direction.negative()) > (3.1415927/2):
+        if self.centerline.getAngle(self.saw_direction.negative()) > (math.pi/2):
             return self.centerline.negative()
         else:
             return self.centerline
