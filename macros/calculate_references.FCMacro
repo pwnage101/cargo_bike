@@ -65,15 +65,41 @@ def rotated_about_axis(vector, axis, theta):
     rotated = np.dot(rotation_matrix(axis, theta), np.asarray(vector))
     return Vec(rotated)
 
+def line_line_intersection(l1, l2):
+    """
+    Assume the lines intersect in 3D, and do a 2D intersection by selecting the
+    two best dimensions out of the three.  Plug the solution back into l1 to
+    get the final intersection point in 3D.
+
+    FIXME: UNTESTED
+    """
+    # point p is perpendicular to both lines
+    p = l1[1].cross(l2[1])
+    p1 = math.fabs(p[0])
+    p2 = math.fabs(p[1])
+    p3 = math.fabs(p[2])
+    axisA = 0
+    axisB = 1
+    if p0 > p1 and p0 > p2:
+        axisA = 1
+        axisB = 2
+    elif p1 > p0 and p1 > p2:
+        axisA = 0
+        axisB = 2
+    l1_parameter = \
+        (l2[1][axisA] * l2[0][axisB] - l2[1][axisA] * l1[0][axisB] + l2[1][axisB] * l1[0][axisA] - l2[1][axisB] * l2[0][axisA]) \
+            / \
+        (l2[1][axisA] * l1[1][axisB] - l2[1][axisB] * l1[1][axisA])
+    # plugging back into the l1 parametric line equation
+    intersection = l1[0] + l1[1].scale(factor)
+    return intersection
+
 
 class Cope(object):
     def reference_vector(self):
         raise(NotImplementedError)
 
-    def angle(self):
-        raise(NotImplementedError)
-
-    def reference(self, first_cope):
+    def reference_angle(self, first_cope):
         first_cope.get_centerline_facing_away()
         self.reference_vector()
 
@@ -82,7 +108,7 @@ class Cope(object):
             return small_angle
         else:
             return 0 - small_angle
-        
+
 
 class FlatCope(Cope):
     def __init__(self, centerline, tube_diameter, cut_face_normal):
@@ -106,11 +132,15 @@ class FlatCope(Cope):
         centerline_facing_away = self.get_centerline_facing_away()
         return centerline_facing_away.cross(self.cut_face_normal)
 
-    def angle(self):
+    def _bandsaw_angle(self):
         """
         Get a cut angle which would be indicated on a horizontal metal bandsaw.
         """
         return self.centerline.getAngle(self.cut_face_normal)
+
+    def set_references(self, prefix, reference_zero_cope):
+        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(),                     'rad')
+        setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
 
 
 class CylindricalCope(Cope):
@@ -137,70 +167,115 @@ class CylindricalCope(Cope):
         centerline_facing_away = self.get_centerline_facing_away()
         return centerline_facing_away.cross(self.saw_direction.negative()).cross(self.centerline)
 
-    def angle(self):
+    def _notcher_angle(self):
         """
         Get a cut angle which would be indicated on a tubing notcher jig.
         """
-        return self.saw_direction.getAngle(self.centerline) - (3.1415927/2)
+        return self.saw_direction.getAngle(self.centerline) - (math.pi/2)
+
+    def set_references(self, prefix, reference_zero):
+        setref('{}/notcher_angle'.format(prefix),   self._notcher_angle(),                     'rad')
+        setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
+        setref('{}/cope_diameter'.format(prefix),   self.cope_diameter,                        'mm')
 
 
 class CopedTubing(object):
-    def __init__(self, name, copes):
+    def __init__(self, name, part_object, shell_face_num=0):
         self.name = name
-        self.copes = copes
+        self.part_object = part_object
+        self.shell_face_num = shell_face_num
+        self.copes = []
+
+    @property
+    def centerline(self):
+        return self.part_object.Shape.Faces[shell_face_num].Surface.Axis
+
+    @property
+    def diameter(self):
+        return 2 * self.part_object.Shape.Faces[shell_face_num].Surface.Radius
+
+    def add_cope(self, cope, is_reference_zero=False):
+        if is_reference_zero:
+            self.copes.insert(0, cope)
+        else:
+            self.copes.append(cope)
+
+    def add_flat_cope(self, cut_face_normal, is_reference_zero=False):
+        new_cope = FlatCope(self.centerline, self.diameter, cut_face_normal)
+        self.add_cope(new_cope, is_reference_zero)
+
+    def add_flat_cope_from_face(self, face_object, is_reference_zero=False):
+        pass
+
+    def add_cylindrical_cope(self, cope_diameter, saw_direction, is_reference_zero=False):
+        new_cope = CylindricalCope(self.centerline, self.diameter, cope_diameter, saw_direction)
+        self.add_cope(new_cope, is_reference_zero)
+
+    def add_cylindrical_cope_from_face(self, face_object, is_reference_zero=False):
+        saw_axis = face_object.Surface.Axis
+        cope_center = line_line_intersection(
+            (face_object.Surface.Center, face_object.Surface.Axis),
+            (self.center, self.centerline)
+        )
+        towards_center = self.center.sub(cope_center)
+        if saw_axis.getAngle(towards_center) < math.pi/2:
+            saw_direction = saw_axis
+        else:
+            saw_direction = saw_axis.negative()
+        self.add_cylindrical_cope(
+            2 * face_object.Surface.Radius,
+            saw_direction,
+            is_reference_zero
+        )
 
     def set_references(self):
         cope_idx = 0
         for cope in self.copes:
             cope_name = '{}/cope_{}'.format(self.name, cope_idx)
-            setref('{}/angle'.format(cope_name), cope.angle(), 'rad')
-            setref('{}/reference'.format(cope_name), cope.reference(self.copes[0]), 'rad')
+            cope.set_references(cope_name, self.copes[0])
             cope_idx += 1
-            
+
 
 # Calculating the copes for the cargo_front_tube_r
 cargo_front_tube_r_centerline = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_centerline')[0].Shape.tangentAt(1)
+tube = CopedTubing(
+    'cargo_front_tube_r',
+    cargo_front_tube_r_centerline,
+    design_params.get('cargo_tube_diam'),
+)
+# front tube / side tube joint
+tube.add_cylindrical_cope(
+    design_params.get('cargo_tube_diam'),
+    Vec(1, 0, 0), # represents centerline of cargo_side_tube
+)
+# joint between two front tubes
+tube.add_flat_cope(
+    Vec(0, 1, 0), # represents normal face of cope
+)
+# slot for front head tube
+tube.add_cylindrical_cope(
+    upcycled_fork.get('front_head_tube_OD'),
+    App.ActiveDocument.getObjectsByLabel('front_head_tube_cope_centerline')[0].Shape.tangentAt(1).negative(),
+)
+tube.set_references()
 
-CopedTubing('cargo_front_tube_r', [
-    # front tube / side tube joint
-    CylindricalCope(
-        cargo_front_tube_r_centerline.negative(),
-        design_params.get('cargo_tube_diam'),
-        design_params.get('cargo_tube_diam'),
-        Vec(1, 0, 0), # represents centerline of cargo_side_tube
-    ),
-    # joint between two front tubes
-    FlatCope(
-        cargo_front_tube_r_centerline,
-        design_params.get('cargo_tube_diam'),
-        Vec(0, 1, 0), # represents normal face of cope
-    ),
-    # slot for front head tube
-    CylindricalCope(
-        cargo_front_tube_r_centerline,
-        design_params.get('cargo_tube_diam'),
-        upcycled_fork.get('front_head_tube_OD'),
-        App.ActiveDocument.getObjectsByLabel('front_head_tube_cope_centerline')[0].Shape.tangentAt(1).negative(),
-    ),
-]).set_references()
-
+###
 # Calculating the copes for the lower_down_tube
+###
 lower_down_tube_centerline = Vec(1, 0, 0)
-
-CopedTubing('lower_down_tube', [
-    CylindricalCope(
-        lower_down_tube_centerline,
-        design_params.get('cargo_tube_diam'),
-        design_params.get('cargo_tube_diam'),
-        Vec(0, 1, 0),
-    ),
-    CylindricalCope(
-        lower_down_tube_centerline,
-        design_params.get('cargo_tube_diam'),
-        design_params.get('rear_head_tube_od'),
-        Vec(0, 0, 1),
-    ),
-]).set_references()
+tube = CopedTubing(
+    'lower_down_tube',
+     lower_down_tube_centerline,
+     design_params.get('cargo_tube_diam'),
+)
+tube.add_cylindrical_cope(
+    design_params.get('cargo_tube_diam'),
+    Vec(0, 1, 0),
+)
+tube.add_cylindrical_cope(
+    design_params.get('rear_head_tube_od'),
+    Vec(0, 0, 1),
+)
 
 
 ref.recompute()
