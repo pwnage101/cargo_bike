@@ -9,28 +9,45 @@ design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
 upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
-aliases = {}
-row = 1
-row_empty = False
-while not row_empty:
-    name = None
-    try:
-        name = ref.get('A{}'.format(row))
-    except ValueError:
-        row_empty = True
-    else:
-        if name:
-            aliases[name] = '{}'.format(row)
-        else:
-            row_empty = True
-    row += 1
+#aliases = {}
+#row = 1
+#row_empty = False
+#while not row_empty:
+#    name = None
+#    try:
+#        name = ref.get('A{}'.format(row))
+#    except ValueError:
+#        row_empty = True
+#    else:
+#        if name:
+#            aliases[name] = '{}'.format(row)
+#        else:
+#            row_empty = True
+#    row += 1
 
-def setref(alias, value, units='mm'):
+current_row = 1
+def setref(alias, value, units=None):
+    """
+    Set a value for the given alias in the References spreadsheet
+    """
+    global current_row
+    formatted_value = value
+    if units:
+        formatted_value = '{:.2f} {}'.format(value, units)
+
     ref.set(
-        'B{}'.format(aliases[alias]),
-        '{:.2f} {}'.format(value, units)
+        'A{}'.format(current_row),
+        alias
     )
-    ref.set('C{}'.format(aliases[alias]), 'FROM PYTHON')
+    ref.set(
+        'B{}'.format(current_row),
+        formatted_value
+    )
+    ref.set(
+        'C{}'.format(current_row),
+        'FROM PYTHON'
+    )
+    current_row += 1
 
 def copy_vector(vec):
     """
@@ -96,6 +113,10 @@ def line_line_intersection(l1, l2):
 
 
 class Cope(object):
+    def __init__(self, centerline, tube_diameter):
+        self.centerline = centerline
+        self.tube_diameter = tube_diameter
+
     def reference_vector(self):
         raise(NotImplementedError)
 
@@ -109,6 +130,12 @@ class Cope(object):
         else:
             return 0 - small_angle
 
+    def reference_angle_along_circumference(self, first_cope):
+        reference_angle = self.reference_angle(first_cope)
+        circumference = self.tube_diameter * math.pi
+        length_along_circumference = circumference * reference_angle / (2 * math.pi)
+        return length_along_circumference
+
 
 class FlatCope(Cope):
     def __init__(self, centerline, tube_diameter, cut_face_normal):
@@ -118,9 +145,8 @@ class FlatCope(Cope):
                 of the tubing.
             cut_face_normal (Vec): normal vector of the cut face.
         """
-        self.centerline = centerline
+        super(FlatCope, self).__init__(centerline, tube_diameter)
         self.cut_face_normal = cut_face_normal
-        self.tube_diameter = tube_diameter
 
     def get_centerline_facing_away(self):
         if self.centerline.dot(self.cut_face_normal) < 0:
@@ -139,8 +165,10 @@ class FlatCope(Cope):
         return self.get_centerline_facing_away().getAngle(self.cut_face_normal)
 
     def set_references(self, prefix, reference_zero_cope):
-        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(),                     'rad')
+        setref('{}/tool'.format(prefix),            "bandsaw")
         setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
+        setref('{}/reference_angle_along_circumference'.format(prefix), self.reference_angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(),                     'rad')
 
 
 class CylindricalCope(Cope):
@@ -152,10 +180,9 @@ class CylindricalCope(Cope):
             saw_direction (Vec): axis of saw rotation, pointing in direction
                 of cutting motion.
         """
-        self.centerline = centerline
-        self.saw_direction = saw_direction
-        self.tube_diameter = tube_diameter
+        super(CylindricalCope, self).__init__(centerline, tube_diameter)
         self.cope_diameter = cope_diameter
+        self.saw_direction = saw_direction
 
     def get_centerline_facing_away(self):
         if self.centerline.dot(self.saw_direction.negative()) < 0:
@@ -171,11 +198,13 @@ class CylindricalCope(Cope):
         """
         Get a cut angle which would be indicated on a tubing notcher jig.
         """
-        return self.saw_direction.getAngle(self.centerline) - (math.pi/2)
+        return self.saw_direction.getAngle(self.get_centerline_facing_away()) - (math.pi/2)
 
     def set_references(self, prefix, reference_zero_cope):
-        setref('{}/notcher_angle'.format(prefix),   self._notcher_angle(),                     'rad')
+        setref('{}/tool'.format(prefix),            "holesaw")
         setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
+        setref('{}/reference_angle_along_circumference'.format(prefix), self.reference_angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}/notcher_angle'.format(prefix),   self._notcher_angle(),                     'rad')
         setref('{}/cope_diameter'.format(prefix),   self.cope_diameter,                        'mm')
 
 
@@ -230,7 +259,7 @@ class CopedTubing(object):
             (self.center_of_mass, self.centerline)
         )
         towards_center = self.center_of_mass.sub(cope_center)
-        if saw_axis.getAngle(towards_center) < math.pi/2:
+        if saw_axis.dot(towards_center) >= 0:
             saw_direction = saw_axis
         else:
             saw_direction = saw_axis.negative()
