@@ -82,6 +82,12 @@ def rotated_about_axis(vector, axis, theta):
     rotated = np.dot(rotation_matrix(axis, theta), np.asarray(vector))
     return Vec(rotated)
 
+def line_plane_intersection(l, p):
+    s = ( p[1].x * p[0].x + p[1].y * p[0].y + p[1].z * p[0].z - p[1].x * l[0].x - p[1].y * l[0].y - p[1].z * l[0].z ) \
+        / \
+        ( p[1].x * l[1].x + p[1].y * l[1].y + p[1].z * l[1].z )
+    return l[0] + Vec(l[1]).multiply(s)
+
 def line_line_intersection(l1, l2):
     """
     Assume the lines intersect in 3D, and do a 2D intersection by selecting the
@@ -108,108 +114,165 @@ def line_line_intersection(l1, l2):
             / \
         (l2[1][axisA] * l1[1][axisB] - l2[1][axisB] * l1[1][axisA])
     # plugging back into the l1 parametric line equation
-    intersection = l1[0] + l1[1].multiply(l1_parameter)
+    intersection = l1[0] + Vec(l1[1]).multiply(l1_parameter)
     return intersection
+
+def pos_along_axis(point, axis):
+    """
+    Parameters:
+        axis (two tuple of Vectors): position and direction of axis
+    """
+    return point.sub(axis[0]).dot(axis[1])
 
 
 class Cope(object):
-    def __init__(self, centerline, tube_diameter):
-        self.centerline = centerline
+    def __init__(self, tube_pos, tube_centerline, tube_diameter):
+        self.tube_pos = tube_pos
+        self.tube_centerline = tube_centerline
+        self.tube_centerline.normalize()
         self.tube_diameter = tube_diameter
 
-    def reference_vector(self):
+    def get_tube_centerline_facing_away(self):
         raise(NotImplementedError)
 
-    def reference_angle(self, first_cope):
-        first_cope.get_centerline_facing_away()
-        self.reference_vector()
+    def angle_vector(self):
+        raise(NotImplementedError)
 
-        small_angle = first_cope.reference_vector().getAngle(self.reference_vector())
-        if first_cope.get_centerline_facing_away().dot(first_cope.reference_vector().cross(self.reference_vector())) > 0:
+    def angle(self, first_cope):
+        """
+        Returns:
+            float: angle (rad) between first cope angle vector and this one's.
+        """
+        small_angle = first_cope.angle_vector().getAngle(self.angle_vector())
+        if first_cope.get_tube_centerline_facing_away().dot(self.angle_vector().cross(first_cope.angle_vector())) > 0:
             return small_angle
         else:
             return 0 - small_angle
 
-    def reference_angle_along_circumference(self, first_cope):
-        reference_angle = self.reference_angle(first_cope)
+    def angle_along_circumference(self, first_cope):
+        """
+        Returns:
+            float: distance (mm) from reference angle to this angle.
+        """
+        angle = self.angle(first_cope)
         circumference = self.tube_diameter * math.pi
-        length_along_circumference = circumference * reference_angle / (2 * math.pi)
-        return length_along_circumference
+        distance_along_circumference = circumference * angle / (2 * math.pi)
+        return distance_along_circumference
+
+    def center(self):
+        raise(NotImplementedError)
+
+    def closest_point(self, points):
+        distance_map = [
+            (point, self.center().distanceToPoint(point))
+            for point in points
+        ]
+        closest = None
+        for point, distance in distance_map:
+            if not closest or distance < closest[1]:
+                closest = (point, distance)
+        return closest[0]
 
 
 class FlatCope(Cope):
-    def __init__(self, centerline, tube_diameter, cut_face_normal):
+    def __init__(self, tube_pos, tube_centerline, tube_diameter, cut_face_pos, cut_face_normal):
         """
         Parameters:
-            centerline (Vec): normalized vector representing the centerline
-                of the tubing.
+            tube_centerline (Vec): normalized vector representing the
+                centerline of the tubing.
             cut_face_normal (Vec): normal vector of the cut face.
         """
-        super(FlatCope, self).__init__(centerline, tube_diameter)
+        super(FlatCope, self).__init__(tube_pos, tube_centerline, tube_diameter)
+        self.cut_face_pos = cut_face_pos
         self.cut_face_normal = cut_face_normal
+        self.cut_face_normal.normalize()
 
-    def get_centerline_facing_away(self):
-        if self.centerline.dot(self.cut_face_normal) < 0:
-            return self.centerline.negative()
+    def center(self):
+        return line_plane_intersection(
+            (self.tube_pos, self.tube_centerline),
+            (self.cut_face_pos, self.cut_face_normal),
+        )
+
+    def get_tube_centerline_facing_away(self):
+        if self.tube_centerline.dot(self.cut_face_normal) < 0:
+            return self.tube_centerline.negative()
         else:
-            return self.centerline
+            return self.tube_centerline
 
-    def reference_vector(self):
-        centerline_facing_away = self.get_centerline_facing_away()
-        return centerline_facing_away.cross(self.cut_face_normal)
+    def angle_vector(self):
+        tube_centerline_facing_away = self.get_tube_centerline_facing_away()
+        return tube_centerline_facing_away.cross(self.cut_face_normal)
+
+    def _pos_relative(self, reference_axis):
+        return pos_along_axis(self.center(), reference_axis)
 
     def _bandsaw_angle(self):
         """
         Get a cut angle which would be indicated on a horizontal metal bandsaw.
         """
-        return self.get_centerline_facing_away().getAngle(self.cut_face_normal)
+        return self.get_tube_centerline_facing_away().getAngle(self.cut_face_normal)
 
-    def set_references(self, prefix, reference_zero_cope):
-        setref('{}/tool'.format(prefix),            "bandsaw")
-        setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
-        setref('{}/reference_angle_along_circumference'.format(prefix), self.reference_angle_along_circumference(reference_zero_cope), 'mm')
-        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(),                     'rad')
+    def set_references(self, prefix, reference_zero_cope, reference_axis):
+        setref('{}/tool'.format(prefix), "bandsaw")
+        setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
+        setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
+        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(), 'rad')
 
 
 class CylindricalCope(Cope):
-    def __init__(self, centerline, tube_diameter, cope_diameter, saw_direction):
+    def __init__(self, tube_pos, tube_centerline, tube_diameter, cope_pos, cope_diameter, saw_direction):
         """
         Parameters:
-            centerline (Vec): normalized vector representing the centerline
-                of the tubing.
+            tube_centerline (Vec): normalized vector representing the
+                centerline of the tubing.
             saw_direction (Vec): axis of saw rotation, pointing in direction
                 of cutting motion.
         """
-        super(CylindricalCope, self).__init__(centerline, tube_diameter)
+        super(CylindricalCope, self).__init__(tube_pos, tube_centerline, tube_diameter)
+        self.cope_pos = cope_pos
         self.cope_diameter = cope_diameter
         self.saw_direction = saw_direction
+        self.saw_direction.normalize()
 
-    def get_centerline_facing_away(self):
-        if self.centerline.dot(self.saw_direction.negative()) < 0:
-            return self.centerline.negative()
+    def center(self):
+        return line_line_intersection(
+            (self.tube_pos, self.tube_centerline),
+            (self.cope_pos, self.saw_direction),
+        )
+
+    def get_tube_centerline_facing_away(self):
+        if self.tube_centerline.dot(self.saw_direction.negative()) < 0:
+            return self.tube_centerline.negative()
         else:
-            return self.centerline
+            return self.tube_centerline
 
-    def reference_vector(self):
-        centerline_facing_away = self.get_centerline_facing_away()
-        return centerline_facing_away.cross(self.saw_direction.negative()).cross(centerline_facing_away)
+    def angle_vector(self):
+        tube_centerline_facing_away = self.get_tube_centerline_facing_away()
+        return tube_centerline_facing_away.cross(self.saw_direction.negative()).cross(tube_centerline_facing_away)
 
-    def _notcher_angle(self):
+    def _pos_relative(self, reference_axis):
+        return pos_along_axis(self.center(), reference_axis)
+
+    def _holesaw_angle(self):
         """
         Get a cut angle which would be indicated on a tubing notcher jig.
         """
-        return self.saw_direction.getAngle(self.get_centerline_facing_away()) - (math.pi/2)
+        return self.saw_direction.getAngle(self.get_tube_centerline_facing_away()) - (math.pi/2)
 
-    def set_references(self, prefix, reference_zero_cope):
-        setref('{}/tool'.format(prefix),            "holesaw")
-        setref('{}/reference_angle'.format(prefix), self.reference_angle(reference_zero_cope), 'rad')
-        setref('{}/reference_angle_along_circumference'.format(prefix), self.reference_angle_along_circumference(reference_zero_cope), 'mm')
-        setref('{}/notcher_angle'.format(prefix),   self._notcher_angle(),                     'rad')
-        setref('{}/cope_diameter'.format(prefix),   self.cope_diameter,                        'mm')
+    def set_references(self, prefix, reference_zero_cope, reference_axis):
+        setref('{}/tool'.format(prefix), "holesaw")
+        setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
+        setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
+        setref('{}/holesaw_angle'.format(prefix),   self._holesaw_angle(), 'rad')
+        setref('{}/holesaw_diameter'.format(prefix),   self.cope_diameter, 'mm')
 
 
 class CopedTubing(object):
     def __init__(self, name, part_object, shell_face_num=0, cope_faces=[]):
+        self._perpendicular_bounds = None
+        self._reference_axis = None
         self.name = name
         self.part_object = part_object
         self.shell_face_num = shell_face_num
@@ -217,19 +280,71 @@ class CopedTubing(object):
         self.add_copes_from_faces(cope_faces)
 
     @property
-    def center_of_mass(self):
-        return self.part_object.Shape.Faces[self.shell_face_num].CenterOfMass
+    def shell_face(self):
+        return self.part_object.Shape.Faces[self.shell_face_num]
+
+    @property
+    def center_of_tube_stock(self):
+        a, b = self.perpendicular_bounds
+        return Vec(a.add(b)).multiply(0.5)
+
+    @property
+    def position(self):
+        return self.shell_face.Surface.Center
 
     @property
     def centerline(self):
-        return self.part_object.Shape.Faces[self.shell_face_num].Surface.Axis
+        return self.shell_face.Surface.Axis
 
     @property
     def diameter(self):
-        return 2 * self.part_object.Shape.Faces[self.shell_face_num].Surface.Radius
+        return 2 * self.shell_face.Surface.Radius
 
-    def add_cope(self, cope, is_reference_zero=False):
-        if is_reference_zero:
+    @property
+    def reference_axis(self):
+        if self._reference_axis:
+            return self._reference_axis
+        reference_cope = self.copes[0]
+        bounds = self.perpendicular_bounds
+        reference_point = reference_cope.closest_point(bounds)
+        reference_direction = reference_cope.get_tube_centerline_facing_away().negative()
+        self._reference_axis = (reference_point, reference_direction)
+        return self._reference_axis
+
+    @property
+    def perpendicular_bounds(self):
+        """
+        Returns:
+            two-tuple of vectors: points along the center axis of the tube
+                where bandsaw cuts can be made to form the stock tube.
+        """
+        if self._perpendicular_bounds:
+            return self._perpendicular_bounds
+        # use a precision of 0.1mm
+        verticies, triangles = self.part_object.Shape.tessellate(0.1)
+        pos_min = None
+        pos_max = None
+        first_iteration = True
+        for v in verticies:
+            pos = v.sub(self.shell_face.Surface.Center).dot(self.centerline)
+            if first_iteration:
+                first_iteration = False
+                pos_min = pos
+                pos_max = pos
+            elif pos < pos_min:
+                pos_min = pos
+            elif pos > pos_max:
+                pos_max = pos
+        bounds = [
+            Vec(self.centerline).multiply(pos).add(self.shell_face.Surface.Center)
+            for pos
+            in (pos_min, pos_max)
+        ]
+        self._perpendicular_bounds = tuple(bounds)
+        return self._perpendicular_bounds
+
+    def add_cope(self, cope, is_reference=False):
+        if is_reference:
             self.copes.insert(0, cope)
         else:
             self.copes.append(cope)
@@ -241,39 +356,41 @@ class CopedTubing(object):
             elif isinstance(face.Surface, Part.Cylinder):
                 self.add_cylindrical_cope_from_face(face)
 
-    def add_flat_cope(self, cut_face_normal, is_reference_zero=False):
-        new_cope = FlatCope(self.centerline, self.diameter, cut_face_normal)
-        self.add_cope(new_cope, is_reference_zero)
+    def add_flat_cope(self, cut_pos, cut_face_normal, is_reference=False):
+        new_cope = FlatCope(self.position, self.centerline, self.diameter, cut_pos, cut_face_normal)
+        self.add_cope(new_cope, is_reference)
 
-    def add_flat_cope_from_face(self, face_object, is_reference_zero=False):
-        self.add_flat_cope(face_object.Surface.Axis, is_reference_zero)
+    def add_flat_cope_from_face(self, face_object, is_reference=False):
+        self.add_flat_cope(face_object.Surface.Position, face_object.Surface.Axis, is_reference)
 
-    def add_cylindrical_cope(self, cope_diameter, saw_direction, is_reference_zero=False):
-        new_cope = CylindricalCope(self.centerline, self.diameter, cope_diameter, saw_direction)
-        self.add_cope(new_cope, is_reference_zero)
+    def add_cylindrical_cope(self, cope_position, cope_diameter, saw_direction, is_reference=False):
+        new_cope = CylindricalCope(self.position, self.centerline, self.diameter, cope_position, cope_diameter, saw_direction)
+        self.add_cope(new_cope, is_reference)
 
-    def add_cylindrical_cope_from_face(self, face_object, is_reference_zero=False):
+    def add_cylindrical_cope_from_face(self, face_object, is_reference=False):
+        saw_position = face_object.Surface.Center
         saw_axis = face_object.Surface.Axis
         cope_center = line_line_intersection(
+            (self.center_of_tube_stock, self.centerline),
             (face_object.Surface.Center, face_object.Surface.Axis),
-            (self.center_of_mass, self.centerline)
         )
-        towards_center = self.center_of_mass.sub(cope_center)
+        towards_center = self.center_of_tube_stock.sub(cope_center)
         if saw_axis.dot(towards_center) >= 0:
             saw_direction = saw_axis
         else:
             saw_direction = saw_axis.negative()
         self.add_cylindrical_cope(
+            saw_position,
             2 * face_object.Surface.Radius,
             saw_direction,
-            is_reference_zero
+            is_reference
         )
 
     def set_references(self):
         cope_idx = 0
         for cope in self.copes:
             cope_name = '{}/cope_{}'.format(self.name, cope_idx)
-            cope.set_references(cope_name, self.copes[0])
+            cope.set_references(cope_name, self.copes[0], self.reference_axis)
             cope_idx += 1
 
 
