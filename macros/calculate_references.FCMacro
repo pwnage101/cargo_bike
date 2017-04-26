@@ -120,9 +120,26 @@ def line_line_intersection(l1, l2):
 def pos_along_axis(point, axis):
     """
     Parameters:
-        axis (two tuple of Vectors): position and direction of axis
+        point (Vector): point in question.
+        axis (two tuple of Vectors): position and direction of axis.
+
+    Returns:
+        float: position along the axis where the point, or its perpendicular
+            projection, lies.
     """
     return point.sub(axis[0]).dot(axis[1])
+
+def point_along_axis(pos, axis):
+    """
+    Parameters:
+        pos (float): position along axis
+        axis (two tuple of Vectors): position and direction of axis
+
+    Returns:
+        Vector: point which corresponds to the given position along the given
+            axis.
+    """
+    return Vec(axis[1]).multiply(pos).add(axis[0])
 
 
 class Cope(object):
@@ -260,13 +277,24 @@ class CylindricalCope(Cope):
         """
         return self.saw_direction.getAngle(self.get_tube_centerline_facing_away()) - (math.pi/2)
 
+    def _holesaw_following_pos(self, reference_axis):
+        cope_offset = self.cope_diameter / (2 * math.cos(self._holesaw_angle()))
+        tube_offset = self.tube_diameter / (2 * math.cos(self._holesaw_angle()))
+        holesaw_following_touch_point_relative = \
+            Vec(self.get_tube_centerline_facing_away()).negative().multiply(cope_offset).add(
+                Vec(self.saw_direction).negative().multiply(tube_offset)
+            )
+        holesaw_following_touch_point = self.center().add(holesaw_following_touch_point_relative)
+        return pos_along_axis(holesaw_following_touch_point, reference_axis)
+
     def set_references(self, prefix, reference_zero_cope, reference_axis):
         setref('{}/tool'.format(prefix), "holesaw")
         setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
         setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
         setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
-        setref('{}/holesaw_angle'.format(prefix),   self._holesaw_angle(), 'rad')
-        setref('{}/holesaw_diameter'.format(prefix),   self.cope_diameter, 'mm')
+        setref('{}/holesaw_angle'.format(prefix), self._holesaw_angle(), 'rad')
+        setref('{}/holesaw_following_pos'.format(prefix), self._holesaw_following_pos(reference_axis), 'mm')
+        setref('{}/holesaw_diameter'.format(prefix), self.cope_diameter, 'mm')
 
 
 class CopedTubing(object):
@@ -301,6 +329,10 @@ class CopedTubing(object):
         return 2 * self.shell_face.Surface.Radius
 
     @property
+    def arbitrary_reference_axis(self):
+        return (self.position, self.centerline)
+
+    @property
     def reference_axis(self):
         if self._reference_axis:
             return self._reference_axis
@@ -326,7 +358,7 @@ class CopedTubing(object):
         pos_max = None
         first_iteration = True
         for v in verticies:
-            pos = v.sub(self.shell_face.Surface.Center).dot(self.centerline)
+            pos = pos_along_axis(v, self.arbitrary_reference_axis)
             if first_iteration:
                 first_iteration = False
                 pos_min = pos
@@ -336,7 +368,7 @@ class CopedTubing(object):
             elif pos > pos_max:
                 pos_max = pos
         bounds = [
-            Vec(self.centerline).multiply(pos).add(self.shell_face.Surface.Center)
+            point_along_axis(pos, self.arbitrary_reference_axis)
             for pos
             in (pos_min, pos_max)
         ]
