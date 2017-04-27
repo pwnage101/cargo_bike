@@ -9,24 +9,8 @@ design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
 upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
-#aliases = {}
-#row = 1
-#row_empty = False
-#while not row_empty:
-#    name = None
-#    try:
-#        name = ref.get('A{}'.format(row))
-#    except ValueError:
-#        row_empty = True
-#    else:
-#        if name:
-#            aliases[name] = '{}'.format(row)
-#        else:
-#            row_empty = True
-#    row += 1
-
 current_row = 1
-def setref(alias, value, units=None):
+def setref(alias, value, units=None, notes=''):
     """
     Set a value for the given alias in the References spreadsheet
     """
@@ -45,17 +29,12 @@ def setref(alias, value, units=None):
     )
     ref.set(
         'C{}'.format(current_row),
-        'FROM PYTHON'
+        notes
     )
     current_row += 1
 
-def copy_vector(vec):
-    """
-    Vectors cannot be copied using the python copy module,
-    and don't otherwise have a built-in copy mechanism!  So
-    this function should suffice.
-    """
-    return Vec(vec.x, vec.y, vec.z)
+def degree_to_rad(degree):
+    return degree * math.pi/180
 
 def rotation_matrix(axis, theta):
     """
@@ -192,6 +171,9 @@ class Cope(object):
 
 
 class FlatCope(Cope):
+    # according to the central machinery bandsaw manual
+    MAX_BANDSAW_ANGLE = degree_to_rad(45)
+
     def __init__(self, tube_pos, tube_centerline, tube_diameter, cut_face_pos, cut_face_normal):
         """
         Parameters:
@@ -229,15 +211,24 @@ class FlatCope(Cope):
         """
         return self.get_tube_centerline_facing_away().getAngle(self.cut_face_normal)
 
+    def _bandsaw_angle_notes(self):
+        msg = ''
+        if self._bandsaw_angle() > self.MAX_BANDSAW_ANGLE:
+            msg = 'angle beyond machine limits'
+        return msg
+
     def set_references(self, prefix, reference_zero_cope, reference_axis):
         setref('{}/tool'.format(prefix), "bandsaw")
         setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
         setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
         setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
-        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(), 'rad')
+        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(), 'rad', notes=self._bandsaw_angle_notes())
 
 
 class CylindricalCope(Cope):
+    # according to the central machinery notching jig manual
+    MAX_HOLESAW_ANGLE = degree_to_rad(60)
+
     def __init__(self, tube_pos, tube_centerline, tube_diameter, cope_pos, cope_diameter, saw_direction):
         """
         Parameters:
@@ -277,6 +268,12 @@ class CylindricalCope(Cope):
         """
         return self.saw_direction.getAngle(self.get_tube_centerline_facing_away()) - (math.pi/2)
 
+    def _holesaw_angle_notes(self):
+        msg = ''
+        if self._holesaw_angle() > self.MAX_HOLESAW_ANGLE:
+            msg = 'angle beyond machine limits'
+        return msg
+
     def _holesaw_following_pos(self, reference_axis):
         cope_offset = self.cope_diameter / (2 * math.cos(self._holesaw_angle()))
         tube_offset = self.tube_diameter / (2 * math.cos(self._holesaw_angle()))
@@ -292,7 +289,7 @@ class CylindricalCope(Cope):
         setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
         setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
         setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
-        setref('{}/holesaw_angle'.format(prefix), self._holesaw_angle(), 'rad')
+        setref('{}/holesaw_angle'.format(prefix), self._holesaw_angle(), 'rad', notes=self._holesaw_angle_notes())
         setref('{}/holesaw_following_pos'.format(prefix), self._holesaw_following_pos(reference_axis), 'mm')
         setref('{}/holesaw_diameter'.format(prefix), self.cope_diameter, 'mm')
 
