@@ -419,6 +419,11 @@ class CopedTubing(object):
         )
 
     def set_references(self):
+        setref(
+            '{}/stock_length'.format(self.name),
+            self.perpendicular_bounds[0].distanceToPoint(self.perpendicular_bounds[1]),
+            'mm',
+        )
         cope_idx = 0
         for cope in self.copes:
             cope_name = '{}/cope_{}'.format(self.name, cope_idx)
