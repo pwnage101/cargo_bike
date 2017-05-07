@@ -218,11 +218,11 @@ class FlatCope(Cope):
         return msg
 
     def set_references(self, prefix, reference_zero_cope, reference_axis):
-        setref('{}/tool'.format(prefix), "bandsaw")
-        setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
-        setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
-        setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
-        setref('{}/bandsaw_angle'.format(prefix),   self._bandsaw_angle(), 'rad', notes=self._bandsaw_angle_notes())
+        setref('{}.tool'.format(prefix), "bandsaw")
+        setref('{}.angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
+        setref('{}.angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}.pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
+        setref('{}.bandsaw_angle'.format(prefix),   self._bandsaw_angle(), 'rad', notes=self._bandsaw_angle_notes())
 
 
 class CylindricalCope(Cope):
@@ -285,13 +285,13 @@ class CylindricalCope(Cope):
         return pos_along_axis(holesaw_following_touch_point, reference_axis)
 
     def set_references(self, prefix, reference_zero_cope, reference_axis):
-        setref('{}/tool'.format(prefix), "holesaw")
-        setref('{}/angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
-        setref('{}/angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
-        setref('{}/pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
-        setref('{}/holesaw_angle'.format(prefix), self._holesaw_angle(), 'rad', notes=self._holesaw_angle_notes())
-        setref('{}/holesaw_following_pos'.format(prefix), self._holesaw_following_pos(reference_axis), 'mm')
-        setref('{}/holesaw_diameter'.format(prefix), self.cope_diameter, 'mm')
+        setref('{}.tool'.format(prefix), "holesaw")
+        setref('{}.angle'.format(prefix), self.angle(reference_zero_cope), 'rad')
+        setref('{}.angle_along_circumference'.format(prefix), self.angle_along_circumference(reference_zero_cope), 'mm')
+        setref('{}.pos'.format(prefix), self._pos_relative(reference_axis), 'mm')
+        setref('{}.holesaw_angle'.format(prefix), self._holesaw_angle(), 'rad', notes=self._holesaw_angle_notes())
+        setref('{}.holesaw_following_pos'.format(prefix), self._holesaw_following_pos(reference_axis), 'mm')
+        setref('{}.holesaw_diameter'.format(prefix), self.cope_diameter, 'mm')
 
 
 class CopedTubing(object):
@@ -417,34 +417,22 @@ class CopedTubing(object):
 
     def set_references(self):
         setref(
-            '{}/stock_length'.format(self.name),
+            '{}.stock_length'.format(self.name),
             self.perpendicular_bounds[0].distanceToPoint(self.perpendicular_bounds[1]),
+            'mm',
+        )
+        setref(
+            '{}.stock_diameter'.format(self.name),
+            self.diameter,
             'mm',
         )
         cope_idx = 0
         for cope in self.copes:
-            cope_name = '{}/cope_{}'.format(self.name, cope_idx)
+            cope_name = '{}.cope_{}'.format(self.name, cope_idx)
             cope.set_references(cope_name, self.copes[0], self.reference_axis)
             cope_idx += 1
 
 
-###
-# Calculating the copes for the cargo_front_tube_r
-###
-tube_part = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_r')[0].Tip
-tube = CopedTubing(
-    'cargo_front_tube_r',
-    tube_part,
-    cope_faces=[
-        # front tube / side tube joint
-        tube_part.Shape.Faces[1],
-        # joint between two front tubes
-        tube_part.Shape.Faces[5],
-        # slot for front head tube
-        tube_part.Shape.Faces[6],
-    ],
-)
-tube.set_references()
 
 ###
 # Calculating the copes for the lower_down_tube
@@ -459,6 +447,46 @@ tube = CopedTubing(
         # cope to rear_head_tube
         tube_part.Shape.Faces[5],
     ],
+)
+tube.set_references()
+
+###
+# Calculating the copes for the cargo_side_tube_r
+###
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_side_tube_r')[0].Tip
+tube = CopedTubing(
+    'cargo_side_tube_r',
+    tube_part,
+    cope_faces=[
+        # cope to the cargo_rear_tube
+        tube_part.Shape.Faces[2],
+    ],
+)
+tube.set_references()
+
+###
+# Calculating the copes for the cargo_front_tube_r
+###
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_r')[0].Tip
+tube = CopedTubing(
+    'cargo_front_tube_r',
+    tube_part,
+    cope_faces=[
+        # front tube / side tube joint
+        tube_part.Shape.Faces[1],
+        # joint with cargo_nose_tube
+        tube_part.Shape.Faces[3],
+    ],
+)
+tube.set_references()
+
+###
+# Calculating the copes for the cargo_front_tube_r
+###
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_nose_tube')[0].Tip
+tube = CopedTubing(
+    'cargo_nose_tube',
+    tube_part,
 )
 tube.set_references()
 
