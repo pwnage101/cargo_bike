@@ -39,19 +39,24 @@ OUTPUT_PDF_FILE=$2
 
 stop_background_processes() {
     echo killing librecad...
-    echo kill -SIGQUIT $librecad_pid
-    kill -SIGQUIT $librecad_pid
+    echo kill -SIGTERM $librecad_pid
+    kill -SIGTERM $librecad_pid || kill -SIGKILL $librecad_pid
     sleep 0.1
     if [[ $HEADLESS == yes ]]; then
         echo killing xvfb...
         echo kill -SIGQUIT $xvfb_pid
         kill -SIGQUIT $xvfb_pid
     fi
+    exit
 }
 
 trap stop_background_processes INT  # this indicates that a keyboard interrupt should stop xvfb
 trap stop_background_processes TERM
 trap stop_background_processes QUIT
+
+if [[ ! $OUTPUT_PDF_FILE =~ ^/.* ]]; then
+    OUTPUT_PDF_FILE=$(pwd)/$OUTPUT_PDF_FILE
+fi
 
 if [[ $HEADLESS == yes ]]; then
     num=-1
@@ -61,9 +66,9 @@ if [[ $HEADLESS == yes ]]; then
         test -S $xsocket || break
     done
     echo export DISPLAY=:$num
-    export DISPLAY=:$num
-    echo Xvfb $DISPLAY -screen 0 1024x768x24
-    Xvfb $DISPLAY -screen 0 1024x768x24 &
+    export DISPLAY=unix:$num
+    echo Xvfb :$num -screen 0 1024x768x24
+    Xvfb :$num -screen 0 1024x768x24 &
     xvfb_pid=$!
     sleep 1
 fi
