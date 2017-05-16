@@ -5,8 +5,8 @@ Vec = Base.Vector
 import numpy as np
 import math
 
-design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
-upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
+#design_params = App.ActiveDocument.getObjectsByLabel('design_params')[0]
+#upcycled_fork = App.ActiveDocument.getObjectsByLabel('upcycled_fork')[0]
 ref = App.ActiveDocument.getObjectsByLabel('References')[0]
 
 current_row = 1
@@ -17,7 +17,7 @@ def setref(alias, value, units=None, notes=''):
     global current_row
     formatted_value = value
     if units:
-        formatted_value = '{:.2f} {}'.format(value, units)
+        formatted_value = '{:.4f} {}'.format(value, units)
 
     ref.set(
         'A{}'.format(current_row),
@@ -437,7 +437,7 @@ class CopedTubing(object):
 ###
 # Calculating the copes for the lower_down_tube
 ###
-tube_part = App.ActiveDocument.getObjectsByLabel('lower_down_tube')[0].Tip
+tube_part = App.ActiveDocument.getObjectsByLabel('lower_down_tube')[0]
 tube = CopedTubing(
     'lower_down_tube',
     tube_part,
@@ -453,7 +453,7 @@ tube.set_references()
 ###
 # Calculating the copes for the cargo_side_tube_r
 ###
-tube_part = App.ActiveDocument.getObjectsByLabel('cargo_side_tube_r')[0].Tip
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_side_tube_r')[0]
 tube = CopedTubing(
     'cargo_side_tube_r',
     tube_part,
@@ -467,7 +467,7 @@ tube.set_references()
 ###
 # Calculating the copes for the cargo_front_tube_r
 ###
-tube_part = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_r')[0].Tip
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_r')[0]
 tube = CopedTubing(
     'cargo_front_tube_r',
     tube_part,
@@ -481,11 +481,37 @@ tube = CopedTubing(
 tube.set_references()
 
 ###
-# Calculating the copes for the cargo_front_tube_r
+# Calculating the copes for the cargo_front_tube_l
 ###
-tube_part = App.ActiveDocument.getObjectsByLabel('cargo_nose_tube')[0].Tip
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_front_tube_l')[0]
+tube = CopedTubing(
+    'cargo_front_tube_l',
+    tube_part,
+    cope_faces=[
+        # front tube / side tube joint
+        tube_part.Shape.Faces[1],
+        # joint with cargo_nose_tube
+        tube_part.Shape.Faces[3],
+    ],
+)
+tube.set_references()
+
+###
+# Calculating the copes for the cargo_nose_tube
+###
+tube_part = App.ActiveDocument.getObjectsByLabel('cargo_nose_tube')[0]
 tube = CopedTubing(
     'cargo_nose_tube',
+    tube_part,
+)
+tube.set_references()
+
+###
+# Calculating the copes for the front_head_tube
+###
+tube_part = App.ActiveDocument.getObjectsByLabel('front_head_tube')[0]
+tube = CopedTubing(
+    'front_head_tube',
     tube_part,
 )
 tube.set_references()
