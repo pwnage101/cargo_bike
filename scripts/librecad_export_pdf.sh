@@ -77,24 +77,32 @@ echo librecad ${INPUT_DXF_FILE}
 librecad ${INPUT_DXF_FILE} &
 librecad_pid=$!
 
-sleep 1
+echo "sending xdotool commands..."
+
+sleep 6
 xdotool search --sync --class librecad windowfocus --sync 
-sleep 0.1
+sleep 0.5
 # open up the print dialog
 xdotool key ctrl+p
-sleep 0.1
+sleep 0.5
 # focus the print dialog
 xdotool windowfocus $(comm -12 <(xdotool search --sync --class "librecad" | sort) <(xdotool search --sync --name "print" | sort))
-sleep 0.1
+sleep 0.5
+# focus on the printer dropdown
+xdotool key alt+n
+sleep 0.5
+# select the PDF printer
+xdotool key p
+sleep 0.5
 # focus on the output filename
 xdotool key alt+f
-sleep 0.1
+sleep 0.5
 # type out the file name
 xdotool type "${OUTPUT_PDF_FILE}"
-sleep 0.1
+sleep 0.5
 # save the file
 xdotool key Return
-sleep 0.3
+sleep 0.5
 xdotool search --sync --class librecad windowkill
 
 stop_background_processes
