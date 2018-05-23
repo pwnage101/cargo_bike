@@ -91,7 +91,7 @@ STANDARD
   9
 $CLAYER
   8
-Title
+Phantom
   9
 $CELTYPE
   6
@@ -1121,9 +1121,9 @@ AcDbViewportTableRecord
  21
 1
  12
-159.689522618534
+159.8502862501276
  22
-75.74139027838388
+75.85128874247559
  13
 0
  23
@@ -1149,9 +1149,9 @@ AcDbViewportTableRecord
  37
 0
  40
-174.0513212266248
+218.4361921330627
  41
-2.053045186640472
+1.635879218472469
  42
 50
  43
@@ -2247,7 +2247,7 @@ AcDbLayerTableRecord
   6
 CONTINUOUS
 370
-   70
+   50
 390
 F
   0
@@ -2269,7 +2269,7 @@ AcDbLayerTableRecord
   6
 CONTINUOUS
 370
-   70
+   50
 390
 F
   0
@@ -2291,7 +2291,7 @@ AcDbLayerTableRecord
   6
 CONTINUOUS
 370
-   70
+   50
 390
 F
   0
@@ -2313,7 +2313,7 @@ Center
   6
 CENTERTINY
 370
-   35
+   25
 390
 F
   0
@@ -2337,7 +2337,7 @@ CONTINUOUS
 290
 0
 370
-   35
+   25
 390
 F
   0
@@ -2359,7 +2359,7 @@ Dimension
   6
 CONTINUOUS
 370
-   35
+   25
 390
 F
   0
@@ -2403,7 +2403,7 @@ Hatching
   6
 CONTINUOUS
 370
-   35
+   25
 390
 F
   0
@@ -2425,7 +2425,7 @@ Hidden
   6
 DASHEDTINY
 370
-   35
+   25
 390
 F
   0
@@ -2469,7 +2469,7 @@ Notes
   6
 CONTINUOUS
 370
-   35
+   25
 390
 F
   0
@@ -2490,6 +2490,8 @@ Paper Bounds
     6
   6
 CONTINUOUS
+290
+0
 370
     0
 390
@@ -2513,7 +2515,7 @@ Phantom
   6
 DASHDOTTINY
 370
-   35
+   25
 390
 F
   0
@@ -2563,7 +2565,7 @@ AcDbSymbolTableRecord
 100
 AcDbTextStyleTableRecord
   2
-simplex
+iso
  70
     0
  40
@@ -2577,7 +2579,7 @@ simplex
  42
 1
   3
-simplex
+iso
   4
 
   0
@@ -2591,7 +2593,7 @@ AcDbSymbolTableRecord
 100
 AcDbTextStyleTableRecord
   2
-iso
+simplex
  70
     0
  40
@@ -2605,7 +2607,7 @@ iso
  42
 1
   3
-iso
+simplex
   4
 
   0
