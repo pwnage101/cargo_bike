@@ -1,3 +1,4 @@
 *.fcstd1
 output/*.pdf
 *~
+\#*
